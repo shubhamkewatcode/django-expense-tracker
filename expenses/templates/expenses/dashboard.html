@@ -1,0 +1,147 @@
+{% extends 'expenses/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2>Dashboard <small class="text-muted">— {{ current_month }}</small></h2>
+
+<div class="row mt-4">
+    <div class="col-md-4 mb-3">
+        <div class="stat-card stat-income">
+            <h6>Income (This Month)</h6>
+            <h2>₹ {{ income_total }}</h2>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="stat-card stat-expense">
+            <h6>Expenses (This Month)</h6>
+            <h2>₹ {{ expense_total }}</h2>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="stat-card stat-balance">
+            <h6>Balance</h6>
+            <h2>₹ {{ balance }}</h2>
+        </div>
+    </div>
+</div>
+
+<!-- Charts will be added in Class 12 -->
+<div class="row mt-4" id="charts-section">
+    <div class="col-md-6 mb-4">
+        <div class="card p-3">
+            <h5>Expenses by Category</h5>
+            <canvas id="pieChart"></canvas>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card p-3">
+            <h5>Last 6 Months</h5>
+            <canvas id="barChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="card p-3 mt-4">
+    <h5>Recent Transactions</h5>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th class="text-end">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for txn in recent_txns %}
+            <tr>
+                <td>{{ txn.date|date:"d M Y" }}</td>
+                <td>
+                    {% if txn.category.category_type == 'income' %}
+                        <span class="badge bg-success">{{ txn.category.name }}</span>
+                    {% else %}
+                        <span class="badge bg-danger">{{ txn.category.name }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ txn.description|default:"—" }}</td>
+                <td class="text-end">₹ {{ txn.amount }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted">No transactions yet. <a href="{% url 'transaction-add' %}">Add your first transaction</a></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ============ PIE CHART — Expenses by Category ============
+    fetch('{% url "api-category-totals" %}', {
+        credentials: 'include'  // Send session cookie for authentication
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.labels.length === 0) return;
+
+        new Chart(document.getElementById('pieChart'), {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: [
+                        '#dc3545', '#fd7e14', '#ffc107', '#28a745',
+                        '#17a2b8', '#6610f2', '#e83e8c', '#6c757d'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    });
+
+    // ============ BAR CHART — Last 6 Months Income vs Expense ============
+    fetch('{% url "api-monthly-summary" %}', {
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.labels.length === 0) return;
+
+        new Chart(document.getElementById('barChart'), {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: data.income,
+                        backgroundColor: '#28a745'
+                    },
+                    {
+                        label: 'Expense',
+                        data: data.expense,
+                        backgroundColor: '#dc3545'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
+
